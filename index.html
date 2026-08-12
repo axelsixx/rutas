@@ -1,0 +1,1485 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Rutas de Lectura CFE</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+  <style>
+    :root {
+      --primary: #00875a;
+      --primary-dark: #005c3d;
+      --accent: #ffab00;
+      --danger: #de350b;
+      --bg-dark: #121212;
+      --card-bg: #1e1e1e;
+      --text: #e0e0e0;
+      --text-muted: #a0a0a0;
+      --border: #333;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      align-items: center;
+    }
+
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 700px;
+      z-index: 1000;
+    }
+
+    .app-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-back {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: none;
+      padding: 5px;
+    }
+
+    main {
+      flex: 1;
+      position: relative;
+      overflow-y: auto;
+      width: 100%;
+      max-width: 700px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .screen {
+      display: none;
+      padding: 15px;
+      height: 100%;
+    }
+
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.9rem;
+    }
+
+    .btn-secondary { background-color: #333; color: var(--text); }
+    .btn-danger { background-color: var(--danger); }
+    .btn-warning { background-color: var(--accent); color: #000; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+    .filter-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 15px;
+      background-color: var(--card-bg);
+      padding: 6px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+
+    .filter-btn {
+      flex: 1;
+      white-space: nowrap;
+      padding: 8px;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      background-color: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .grid-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    .card-title {
+      font-weight: bold;
+      font-size: 1rem;
+      margin-bottom: 5px;
+    }
+
+    .card-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+    .tag-urbana { background: #2196F3; color: white; }
+    .tag-vehicular { background: #FF9800; color: white; }
+
+    #vehicular-header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #map-container {
+      width: 100%;
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background-color: #222;
+    }
+
+    /* MENÚ HAMBURGUESA FLOTANTE ADAPTADO A LEAFLET */
+    .map-tools-container {
+      pointer-events: auto;
+      margin-top: 10px;
+      margin-right: 10px;
+      clear: both;
+      float: right;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .btn-tools-toggle {
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    }
+
+    .map-tools-menu {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      background: rgba(30, 30, 30, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+      min-width: 160px;
+    }
+
+    .map-tools-menu.active {
+      display: flex;
+    }
+
+    .map-tools-menu .btn {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+
+    .progress-card {
+      background-color: rgba(30, 30, 30, 0.95);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .progress-bar-bg {
+      background-color: #333;
+      height: 6px;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-bar-fill {
+      background-color: var(--primary);
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .search-input, .form-input {
+      width: 100%;
+      padding: 10px;
+      background-color: #2a2a2a;
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .service-item {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .service-item.procesado {
+      opacity: 0.5;
+      border-left: 4px solid var(--primary);
+    }
+
+    .service-item.no-leido {
+      border-left: 4px solid var(--accent);
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 2000;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 700px;
+      border-radius: 16px 16px 0 0;
+      padding: 20px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      border: 1px solid var(--primary);
+      z-index: 3000;
+      display: none;
+    }
+
+    .croquis-img {
+      width: 100%;
+      border-radius: 8px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .leaflet-control-layers {
+      background: var(--card-bg) !important;
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5) !important;
+      padding: 6px 10px !important;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+    .leaflet-control-layers-list label {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 4px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <button id="btn-back" class="btn-back" onclick="navigateBack()">←</button>
+    <div id="app-title" class="app-title">Rutas de Lectura CFE</div>
+    <button class="btn btn-sm btn-secondary" onclick="openImportExport()">⚙️ Data</button>
+  </header>
+
+  <main>
+
+    <!-- PANTALLA 1: SELECCIÓN DE CICLO -->
+    <section id="screen-ciclos" class="screen active">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="filter-bar" style="margin:0; flex:1; margin-right:8px;">
+          <button id="filter-auto" class="filter-btn active" onclick="setMesFilter('auto')">Auto (Agosto: Pares)</button>
+          <button id="filter-mensual" class="filter-btn" onclick="setMesFilter('mensual')">Solo Mensuales</button>
+          <button id="filter-par" class="filter-btn" onclick="setMesFilter('par')">Pares (2-36)</button>
+          <button id="filter-impar" class="filter-btn" onclick="setMesFilter('impar')">Impares (1-37)</button>
+        </div>
+        <button class="btn btn-sm" onclick="openModalNuevoCiclo()">➕ Ciclo</button>
+      </div>
+
+      <div id="cont-mensuales">
+        <h3 style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-muted);">CICLOS MENSUALES (66-84)</h3>
+        <div id="list-mensuales" class="grid-list" style="margin-bottom: 20px;"></div>
+      </div>
+
+      <div id="cont-bimestrales">
+        <h3 id="title-bimestrales" style="margin-bottom: 10px; font-size: 0.9rem; color: var(--text-muted);">CICLOS BIMESTRALES</h3>
+        <div id="list-bimestrales" class="grid-list"></div>
+      </div>
+    </section>
+
+    <!-- PANTALLA 2: LISTA DE RUTAS -->
+    <section id="screen-rutas" class="screen">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+        <h2 id="cat-selected-title">Rutas</h2>
+        <button class="btn btn-sm" onclick="openModalNuevaRuta()">➕ Nueva Ruta</button>
+      </div>
+      <div id="list-rutas" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    </section>
+
+    <!-- PANTALLA 3A: VISTA RUTA URBANA (TIPO A) -->
+    <section id="screen-urbana" class="screen">
+      <h2 id="urbana-title">Ruta Urbana</h2>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">Secciones y croquis de recorrido</p>
+      
+      <div id="list-secciones" style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto;"></div>
+    </section>
+
+    <!-- PANTALLA 3B: VISTA RUTA VEHICULAR / RURAL (TIPO B) -->
+    <section id="screen-vehicular" class="screen" style="padding: 0; display:none; flex-direction:column;">
+      
+      <div id="vehicular-header">
+        <div class="progress-card">
+          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; font-weight: bold;">
+            <span id="vehicular-route-name">Ruta</span>
+            <span id="progress-text">0 / 0 (0%)</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:6px;">
+          <div class="filter-bar" style="margin:0; flex:1;">
+            <button id="tab-mapa" class="filter-btn active" onclick="switchRouteTab('mapa')">🗺️ Mapa</button>
+            <button id="tab-lista" class="filter-btn" onclick="switchRouteTab('lista')">📋 Lista</button>
+          </div>
+          <div class="filter-bar" style="margin:0; flex:1;">
+            <button id="f-pendientes" class="filter-btn active" onclick="setServiceFilter('pendientes')">Pendientes</button>
+            <button id="f-todos" class="filter-btn" onclick="setServiceFilter('todos')">Todos</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="map-container">
+        <div id="map"></div>
+
+        <!-- CONTENEDOR DEL MENÚ HAMBURGUESA DE HERRAMIENTAS -->
+        <div id="map-tools-container" class="map-tools-container">
+          <button class="btn-tools-toggle" onclick="toggleMapToolsMenu(event)" title="Menú de Opciones">☰</button>
+          <div id="map-tools-menu" class="map-tools-menu">
+            <button class="btn btn-secondary" onclick="openModalFormServicio(); toggleMapToolsMenu();">➕ Nuevo Punto</button>
+            <button class="btn btn-secondary" onclick="centerOnUserGPS(); toggleMapToolsMenu();">📍 Mi Ubicación</button>
+            <button class="btn btn-secondary" onclick="resetCurrentRoute(); toggleMapToolsMenu();">🔄 Reiniciar Ruta</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pestaña de Lista -->
+      <div id="list-services-container" style="display: none; padding: 15px; height: 100%; overflow-y: auto;">
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
+          <input type="text" id="search-service" class="search-input" style="margin-bottom:0;" placeholder="Buscar por medidor o nombre..." oninput="renderServicesList()">
+          <button class="btn btn-sm" onclick="openModalFormServicio()">➕ Nuevo</button>
+        </div>
+        <div id="list-services"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- TOAST NOTIFICACIÓN -->
+  <div id="toast" class="toast">Mensaje de notificación</div>
+
+  <!-- MODAL VER / ACCIONES DE SERVICIO -->
+  <div id="modal-service" class="modal" onclick="closeModalOnBackdrop(event, 'modal-service')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h3 id="modal-srv-title" style="font-size:1.1rem; color:#fff;">Medidor — Nombre</h3>
+          <p id="modal-srv-obs" style="margin-top:6px; font-size:0.85rem; color:var(--accent);">Sin observaciones</p>
+        </div>
+        <button class="btn btn-sm btn-secondary" onclick="toggleAdvancedOptions()">⚙️</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 15px;">
+        <button id="btn-nav" class="btn btn-secondary" style="flex: 1;" onclick="navigateGPS()">📍 Llévame ahí</button>
+        <button id="btn-no-leido" class="btn btn-warning" style="flex: 1;" onclick="markService('no-leido')">⚠️ No Leído</button>
+      </div>
+      <button id="btn-procesar" class="btn" style="width: 100%; margin-top: 8px;" onclick="markService('procesado')">✓ Procesar Lectura</button>
+      
+      <!-- Opciones Avanzadas -->
+      <div id="adv-options" style="display:none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm btn-secondary" style="flex: 1;" onclick="openEditarServicio()">✏️ Editar Servicio</button>
+          <button class="btn btn-sm btn-danger" style="flex: 1;" onclick="eliminarServicio()">🗑️ Eliminar</button>
+        </div>
+      </div>
+
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 12px;" onclick="closeModal('modal-service')">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- MODAL AGREGAR / EDITAR SERVICIO -->
+  <div id="modal-form-service" class="modal" onclick="closeModalOnBackdrop(event, 'modal-form-service')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3 id="form-srv-title">Nuevo Servicio</h3>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">Solo las coordenadas son obligatorias.</p>
+
+      <input type="text" id="input-srv-medidor" class="form-input" placeholder="Número de Medidor (Opcional)">
+      <input type="text" id="input-srv-nombre" class="form-input" placeholder="Nombre / Cliente / Ref. Comunidad (Opcional)">
+      <input type="text" id="input-srv-obs" class="form-input" placeholder="Observación (ej. Pedir llave) (Opcional)">
+      
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <input type="number" step="any" id="input-srv-lat" class="form-input" style="margin:0;" placeholder="Latitud *">
+        <input type="number" step="any" id="input-srv-lng" class="form-input" style="margin:0;" placeholder="Longitud *">
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom:15px;">
+        <button class="btn btn-sm btn-secondary" style="flex:1;" onclick="getGPSAccurate()">🎯 Capturar GPS</button>
+        <button class="btn btn-sm btn-secondary" style="flex:1;" onclick="copyLastGPS()">📋 Usar Última Coord.</button>
+      </div>
+
+      <button class="btn" style="width: 100%;" onclick="guardarServicio()">💾 Guardar Servicio</button>
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" onclick="closeModal('modal-form-service')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR / GESTIONAR RUTA -->
+  <div id="modal-editar-ruta" class="modal" onclick="closeModalOnBackdrop(event, 'modal-editar-ruta')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>Gestión de Ruta</h3>
+      <br>
+      <input type="text" id="input-edit-ruta-nombre" class="form-input" placeholder="Nombre de la Ruta">
+      
+      <div style="margin-bottom:15px; display:flex; align-items:center; gap:10px;">
+        <input type="checkbox" id="check-edit-ruta-llave" style="width:20px; height:20px;">
+        <label for="check-edit-ruta-llave" style="font-size:0.9rem;">Requiere llevar llaves 🔑</label>
+      </div>
+
+      <button class="btn" style="width: 100%; margin-bottom: 12px;" onclick="guardarEdicionRuta()">💾 Guardar Cambios</button>
+      <button class="btn btn-danger" style="width: 100%; margin-bottom: 8px;" onclick="eliminarRutaSeleccionada()">🗑️ Eliminar Ruta Completa</button>
+      <button class="btn btn-secondary" style="width: 100%;" onclick="closeModal('modal-editar-ruta')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVA RUTA -->
+  <div id="modal-nueva-ruta" class="modal" onclick="closeModalOnBackdrop(event, 'modal-nueva-ruta')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>Crear Nueva Ruta</h3>
+      <br>
+      <input type="text" id="input-ruta-nombre" class="form-input" placeholder="Nombre de la Ruta (ej. El Potrero)">
+      
+      <div style="margin-bottom:15px;">
+        <label style="font-size:0.85rem; color:var(--text-muted);">Tipo de Ruta:</label>
+        <select id="select-ruta-tipo" class="form-input" style="margin-top:5px;">
+          <option value="VEHICULAR">Vehicular / Rural (Con medidores o ejidos)</option>
+          <option value="URBANA">Urbana (Con croquis/secciones)</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:15px; display:flex; align-items:center; gap:10px;">
+        <input type="checkbox" id="check-ruta-llave" style="width:20px; height:20px;">
+        <label for="check-ruta-llave" style="font-size:0.9rem;">Requiere llevar llaves 🔑</label>
+      </div>
+
+      <button class="btn" style="width: 100%;" onclick="crearNuevaRuta()">Crear Ruta</button>
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" onclick="closeModal('modal-nueva-ruta')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO CICLO -->
+  <div id="modal-nuevo-ciclo" class="modal" onclick="closeModalOnBackdrop(event, 'modal-nuevo-ciclo')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>Crear Nuevo Ciclo</h3>
+      <br>
+      <input type="number" id="input-ciclo-id" class="form-input" placeholder="Número de Ciclo (ej. 78)">
+      <input type="text" id="input-ciclo-nombre" class="form-input" placeholder="Nombre (ej. Ciclo 78 OM)">
+      
+      <div style="margin-bottom:15px;">
+        <label style="font-size:0.85rem; color:var(--text-muted);">Tipo de Ciclo:</label>
+        <select id="select-ciclo-tipo" class="form-input" style="margin-top:5px;">
+          <option value="PAR">Par (Meses Pares: Feb, Abr, Jun, Ago...)</option>
+          <option value="IMPAR">Impar (Meses Impares: Ene, Mar, May...)</option>
+          <option value="MENSUAL">Mensual (Todos los meses)</option>
+        </select>
+      </div>
+
+      <button class="btn" style="width: 100%;" onclick="crearNuevoCiclo()">Crear Ciclo</button>
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 8px;" onclick="closeModal('modal-nuevo-ciclo')">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORT / EXPORT -->
+  <div id="modal-data" class="modal" onclick="closeModalOnBackdrop(event, 'modal-data')">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <h3>Gestión de Datos</h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">Importa servicios o respalda la base en JSON.</p>
+
+      <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;" onclick="downloadCSVTemplate()">📄 Descargar Plantilla CSV</button>
+
+      <label class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;">
+        📥 Cargar Medidores desde CSV
+        <input type="file" id="file-csv" accept=".csv" style="display:none" onchange="importCSV(event)">
+      </label>
+
+      <label class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;">
+        📥 Importar Respaldo JSON
+        <input type="file" id="file-json" accept=".json" style="display:none" onchange="importJSON(event)">
+      </label>
+
+      <button class="btn" style="width: 100%; margin-bottom: 10px;" onclick="exportJSON()">📤 Exportar Todo a JSON</button>
+      <button class="btn btn-secondary" style="width: 100%;" onclick="closeDataModal()">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <script>
+    let db = { ciclos: [], rutas: [] };
+    let navigationStack = [];
+    let currentCiclo = null;
+    let currentRuta = null;
+    let selectedService = null;
+    let selectedRutaForEdit = null;
+    let lastRecordedGPS = null;
+    
+    let leafletMap = null;
+    let markersMap = new Map();
+    let activeServiceFilter = 'pendientes';
+
+    function getCategoriaPorCiclo(cicloId) {
+      if (cicloId === 66) return "ALUMBRADO";
+      if (cicloId >= 76 && cicloId <= 79) return "OM";
+      if (cicloId >= 81 && cicloId <= 83) return "HM";
+      if (cicloId === 84) return "PERMISIONARIOS";
+      return "URBANA";
+    }
+
+    const defaultStructure = {
+      ciclos: [
+        { id: 66, nombre: "Ciclo 66 (ALUMBRADO)", tipo: "MENSUAL" },
+        { id: 77, nombre: "Ciclo 77 (OM)", tipo: "MENSUAL" },
+        { id: 81, nombre: "Ciclo 81 (HM)", tipo: "MENSUAL" },
+        { id: 84, nombre: "Ciclo 84 (PERMISIONARIOS)", tipo: "MENSUAL" },
+        { id: 3, nombre: "Ciclo 3", tipo: "IMPAR" },
+        { id: 27, nombre: "Ciclo 27", tipo: "IMPAR" },
+        { id: 2, nombre: "Ciclo 2", tipo: "PAR" },
+        { id: 28, nombre: "Ciclo 28", tipo: "PAR" }
+      ],
+      rutas: [
+        {
+          id: "r_potrero",
+          cicloId: 77,
+          nombre: "El Potrero 🔑",
+          tipo: "VEHICULAR",
+          requiereLlave: true,
+          fechaInicio: new Date().toISOString(),
+          servicios: [
+            { id: "s1", nombre: "Aserradero San José", medidor: "8A3421", lat: 26.9312, lng: -105.6621, obs: "Pedir llave al encargado", estado: "pendiente" },
+            { id: "s2", nombre: "Rancho El Sagrado", medidor: "12B900", lat: 26.9405, lng: -105.6710, obs: "Medidor en poste posterior", estado: "pendiente" }
+          ]
+        },
+        {
+          id: "r_mendez",
+          cicloId: 28,
+          nombre: "Ruta 1 — Méndez Rosas",
+          tipo: "URBANA",
+          requiereLlave: false,
+          secciones: [
+            { id: "sec1", nombre: "Colonia Méndez Rosas", latInicio: 26.9200, lngInicio: -105.6500, croquis: null },
+            { id: "sec2", nombre: "Colonia Centro", latInicio: 26.9250, lngInicio: -105.6550, croquis: null }
+          ]
+        }
+      ]
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadLocalData();
+      initMap();
+      renderCiclos();
+
+      // Cerrar menú si se hace tap fuera de él
+      document.addEventListener('click', (e) => {
+        const toolsCont = document.getElementById('map-tools-container');
+        const toolsMenu = document.getElementById('map-tools-menu');
+        if (toolsMenu && toolsMenu.classList.contains('active') && !toolsCont.contains(e.target)) {
+          toolsMenu.classList.remove('active');
+        }
+      });
+    });
+
+    function toggleMapToolsMenu(event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('map-tools-menu');
+      if (menu) menu.classList.toggle('active');
+    }
+
+    function loadLocalData() {
+      const stored = localStorage.getItem('cfe_rutas_db');
+      if (stored) {
+        try { db = JSON.parse(stored); } catch(e) { db = defaultStructure; }
+      } else {
+        db = defaultStructure;
+        saveLocalData();
+      }
+    }
+
+    function saveLocalData() {
+      localStorage.setItem('cfe_rutas_db', JSON.stringify(db));
+    }
+
+    function showToast(msj) {
+      const t = document.getElementById('toast');
+      t.innerText = msj;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 3000);
+    }
+
+    function showScreen(screenId, title = "Rutas CFE") {
+      document.querySelectorAll('.screen').forEach(s => s.style.display = 'none');
+      const sc = document.getElementById(screenId);
+      sc.style.display = (screenId === 'screen-vehicular') ? 'flex' : 'block';
+      sc.classList.add('active');
+      
+      document.getElementById('app-title').innerText = title;
+      
+      const backBtn = document.getElementById('btn-back');
+      backBtn.style.display = navigationStack.length > 0 ? 'block' : 'none';
+
+      if (screenId === 'screen-vehicular') {
+        setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 200);
+      }
+    }
+
+    function navigateTo(screenId, title, stateSetter) {
+      navigationStack.push({
+        screen: document.querySelector('.screen.active').id,
+        title: document.getElementById('app-title').innerText
+      });
+      if (stateSetter) stateSetter();
+      showScreen(screenId, title);
+    }
+
+    function navigateBack() {
+      if (navigationStack.length === 0) return;
+      const prev = navigationStack.pop();
+      showScreen(prev.screen, prev.title);
+    }
+
+    let currentMesFilter = 'auto';
+
+    function setMesFilter(filter) {
+      currentMesFilter = filter;
+      document.querySelectorAll('.filter-bar .filter-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`filter-${filter}`).classList.add('active');
+      renderCiclos();
+    }
+
+    function renderCiclos() {
+      const listMensuales = document.getElementById('list-mensuales');
+      const listBimestrales = document.getElementById('list-bimestrales');
+      const contMensuales = document.getElementById('cont-mensuales');
+      const contBimestrales = document.getElementById('cont-bimestrales');
+
+      listMensuales.innerHTML = '';
+      listBimestrales.innerHTML = '';
+
+      const monthIndex = new Date().getMonth() + 1;
+      const isCurrentMonthPar = (monthIndex % 2 === 0);
+
+      if (currentMesFilter === 'mensual') {
+        contMensuales.style.display = 'block';
+        contBimestrales.style.display = 'none';
+      } else {
+        contMensuales.style.display = 'block';
+        contBimestrales.style.display = 'block';
+      }
+
+      db.ciclos.forEach(c => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.onclick = () => selectCiclo(c);
+
+        const categoriaLabel = getCategoriaPorCiclo(c.id);
+
+        card.innerHTML = `
+          <div class="card-title">${c.nombre}</div>
+          <div class="card-subtitle">${c.tipo} ${c.tipo === 'MENSUAL' ? '• ' + categoriaLabel : ''}</div>
+        `;
+
+        if (c.tipo === 'MENSUAL') {
+          listMensuales.appendChild(card);
+        } else {
+          let show = false;
+          if (currentMesFilter === 'auto') {
+            show = (isCurrentMonthPar && c.tipo === 'PAR') || (!isCurrentMonthPar && c.tipo === 'IMPAR');
+          } else if (currentMesFilter === 'impar' && c.tipo === 'IMPAR') {
+            show = true;
+          } else if (currentMesFilter === 'par' && c.tipo === 'PAR') {
+            show = true;
+          }
+          if (show) listBimestrales.appendChild(card);
+        }
+      });
+    }
+
+    function selectCiclo(ciclo) {
+      currentCiclo = ciclo;
+      navigateTo('screen-rutas', `${ciclo.nombre}`, () => {
+        renderRutas();
+      });
+    }
+
+    function openModalNuevoCiclo() {
+      document.getElementById('input-ciclo-id').value = '';
+      document.getElementById('input-ciclo-nombre').value = '';
+      document.getElementById('modal-nuevo-ciclo').classList.add('active');
+    }
+
+    function crearNuevoCiclo() {
+      const id = parseInt(document.getElementById('input-ciclo-id').value);
+      const nombre = document.getElementById('input-ciclo-nombre').value.trim();
+      const tipo = document.getElementById('select-ciclo-tipo').value;
+
+      if (isNaN(id) || !nombre) {
+        alert("Ingresa el número y nombre del ciclo.");
+        return;
+      }
+
+      db.ciclos.push({ id, nombre, tipo });
+      saveLocalData();
+      closeModal('modal-nuevo-ciclo');
+      renderCiclos();
+      showToast("¡Nuevo ciclo creado!");
+    }
+
+    function renderRutas() {
+      const list = document.getElementById('list-rutas');
+      list.innerHTML = '';
+
+      const rutas = db.rutas.filter(r => r.cicloId === currentCiclo.id);
+
+      if (rutas.length === 0) {
+        list.innerHTML = `<p style="color:var(--text-muted); padding:20px; text-align:center;">No hay rutas registradas en este ciclo.<br><br><small>Usa "➕ Nueva Ruta" o importa desde CSV.</small></p>`;
+        return;
+      }
+
+      rutas.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        let infoProgress = "";
+        if (r.tipo === 'VEHICULAR' && r.servicios) {
+          const total = r.servicios.length;
+          const proc = r.servicios.filter(s => s.estado === 'procesado').length;
+          const noLeidos = r.servicios.filter(s => s.estado === 'no-leido').length;
+          infoProgress = `<div class="card-subtitle" style="margin-top:5px;">Progreso: ${proc}/${total} (${Math.round((proc/total)||0)}%) ${noLeidos > 0 ? '• ⚠️ ' + noLeidos : ''}</div>`;
+        }
+
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="card-title" onclick="openRutaById('${r.id}')" style="flex:1;">${r.nombre}</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="tag ${r.tipo === 'URBANA' ? 'tag-urbana' : 'tag-vehicular'}">${r.tipo}</span>
+              <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); openModalEditarRuta('${r.id}')" style="padding:4px 8px;">⚙️</button>
+            </div>
+          </div>
+          <div onclick="openRutaById('${r.id}')">${infoProgress}</div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function openRutaById(rutaId) {
+      const ruta = db.rutas.find(r => r.id === rutaId);
+      if (ruta) openRuta(ruta);
+    }
+
+    function openModalEditarRuta(rutaId) {
+      const ruta = db.rutas.find(r => r.id === rutaId);
+      if (!ruta) return;
+
+      selectedRutaForEdit = ruta;
+      let limpioNombre = ruta.nombre.replace(' 🔑', '');
+      document.getElementById('input-edit-ruta-nombre').value = limpioNombre;
+      document.getElementById('check-edit-ruta-llave').checked = ruta.requiereLlave || ruta.nombre.includes('🔑');
+      document.getElementById('modal-editar-ruta').classList.add('active');
+    }
+
+    function guardarEdicionRuta() {
+      if (!selectedRutaForEdit) return;
+
+      const nombre = document.getElementById('input-edit-ruta-nombre').value.trim();
+      const requiereLlave = document.getElementById('check-edit-ruta-llave').checked;
+
+      if (!nombre) {
+        alert("El nombre de la ruta no puede estar vacío.");
+        return;
+      }
+
+      selectedRutaForEdit.nombre = requiereLlave && !nombre.includes('🔑') ? nombre + ' 🔑' : nombre;
+      selectedRutaForEdit.requiereLlave = requiereLlave;
+
+      saveLocalData();
+      closeModal('modal-editar-ruta');
+      renderRutas();
+      showToast("Ruta actualizada");
+    }
+
+    function eliminarRutaSeleccionada() {
+      if (!selectedRutaForEdit) return;
+
+      if (confirm(`¿Seguro que deseas eliminar la ruta "${selectedRutaForEdit.nombre}" y todos sus datos guardados?`)) {
+        db.rutas = db.rutas.filter(r => r.id !== selectedRutaForEdit.id);
+        saveLocalData();
+        closeModal('modal-editar-ruta');
+        renderRutas();
+        showToast("Ruta eliminada");
+      }
+    }
+
+    function openRuta(ruta) {
+      currentRuta = ruta;
+      checkAutoResetRuta();
+
+      if (ruta.tipo === 'URBANA') {
+        navigateTo('screen-urbana', ruta.nombre, () => {
+          renderRutaUrbana();
+        });
+      } else {
+        navigateTo('screen-vehicular', ruta.nombre, () => {
+          loadVehicularRoute();
+        });
+      }
+    }
+
+    function checkAutoResetRuta() {
+      if (!currentRuta || !currentRuta.fechaInicio || !currentRuta.servicios) return;
+
+      const fechaInicio = new Date(currentRuta.fechaInicio);
+      const ahora = new Date();
+      const diferenciaHoras = (ahora - fechaInicio) / (1000 * 3600);
+
+      if (diferenciaHoras >= 72) {
+        currentRuta.servicios.forEach(s => s.estado = 'pendiente');
+        currentRuta.fechaInicio = new Date().toISOString();
+        saveLocalData();
+        showToast("🔄 Ruta reiniciada automáticamente (3 días cumplidos)");
+      }
+    }
+
+    function openModalNuevaRuta() {
+      document.getElementById('input-ruta-nombre').value = '';
+      document.getElementById('check-ruta-llave').checked = false;
+      document.getElementById('modal-nueva-ruta').classList.add('active');
+    }
+
+    function crearNuevaRuta() {
+      const nombre = document.getElementById('input-ruta-nombre').value.trim();
+      const tipo = document.getElementById('select-ruta-tipo').value;
+      const requiereLlave = document.getElementById('check-ruta-llave').checked;
+
+      if (!nombre) {
+        alert("Escribe un nombre para la ruta.");
+        return;
+      }
+
+      const nuevaRuta = {
+        id: "r_" + Date.now(),
+        cicloId: currentCiclo.id,
+        nombre: requiereLlave && !nombre.includes('🔑') ? nombre + ' 🔑' : nombre,
+        tipo: tipo,
+        requiereLlave: requiereLlave,
+        fechaInicio: new Date().toISOString(),
+        servicios: [],
+        secciones: tipo === 'URBANA' ? [{ id: "sec_1", nombre: "Sección Principal", latInicio: 26.9312, lngInicio: -105.6621, croquis: null }] : []
+      };
+
+      db.rutas.push(nuevaRuta);
+      saveLocalData();
+      closeModal('modal-nueva-ruta');
+      renderRutas();
+      showToast("¡Nueva ruta creada!");
+    }
+
+    function renderRutaUrbana() {
+      const list = document.getElementById('list-secciones');
+      list.innerHTML = '';
+
+      if (!currentRuta.secciones || currentRuta.secciones.length === 0) {
+        list.innerHTML = `<p style="color:var(--text-muted);">Sin secciones o colonias configuradas.</p>`;
+        return;
+      }
+
+      currentRuta.secciones.forEach((sec, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cursor = 'default';
+
+        const croquisImg = sec.croquis ? `<img src="${sec.croquis}" class="croquis-img">` : `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">Sin croquis adjunto</p>`;
+
+        card.innerHTML = `
+          <div class="card-title">${sec.nombre}</div>
+          <button class="btn btn-sm btn-secondary" style="margin-top:8px;" onclick="openGoogleMaps(${sec.latInicio}, ${sec.lngInicio})">📍 Abrir Punto de Inicio en Maps</button>
+
+          <div style="margin-top:12px;">
+            <strong style="font-size:0.85rem;">Croquis de recorrido:</strong>
+            ${croquisImg}
+            <label class="btn btn-sm" style="margin-top:8px; display:inline-block;">
+              📷 ${sec.croquis ? 'Cambiar Foto' : 'Añadir Foto/Croquis'}
+              <input type="file" accept="image/*" style="display:none;" onchange="uploadCroquis(event, ${idx})">
+            </label>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function uploadCroquis(event, secIdx) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        currentRuta.secciones[secIdx].croquis = e.target.result;
+        saveLocalData();
+        renderRutaUrbana();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openGoogleMaps(lat, lng) {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    }
+
+    function initMap() {
+      leafletMap = L.map('map', { zoomControl: false }).setView([26.9312, -105.6621], 13);
+
+      const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+      });
+
+      const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles © Esri'
+      });
+
+      streetLayer.addTo(leafletMap);
+
+      const baseMaps = {
+        "🗺️ Calles": streetLayer,
+        "🛰️ Satélite": satelliteLayer
+      };
+
+      L.control.layers(baseMaps, null, { position: 'topright' }).addTo(leafletMap);
+
+      // OPCIÓN A: Inyectar el menú de herramientas al contenedor nativo superior derecho de Leaflet
+      const topRightContainer = leafletMap._controlContainer.querySelector('.leaflet-top.leaflet-right');
+      const toolsContainer = document.getElementById('map-tools-container');
+      if (topRightContainer && toolsContainer) {
+        topRightContainer.appendChild(toolsContainer);
+      }
+    }
+
+    function loadVehicularRoute() {
+      document.getElementById('vehicular-route-name').innerText = currentRuta.nombre;
+      switchRouteTab('mapa');
+      updateProgressUI();
+      renderMapMarkers();
+      renderServicesList();
+    }
+
+    function switchRouteTab(tab) {
+      const mapCont = document.getElementById('map-container');
+      const listCont = document.getElementById('list-services-container');
+      const tabMapa = document.getElementById('tab-mapa');
+      const tabLista = document.getElementById('tab-lista');
+
+      if (tab === 'mapa') {
+        mapCont.style.display = 'block';
+        listCont.style.display = 'none';
+        tabMapa.classList.add('active');
+        tabLista.classList.remove('active');
+        setTimeout(() => leafletMap.invalidateSize(), 100);
+      } else {
+        mapCont.style.display = 'none';
+        listCont.style.display = 'block';
+        tabMapa.classList.remove('active');
+        tabLista.classList.add('active');
+        renderServicesList();
+      }
+    }
+
+    function renderMapMarkers() {
+      markersMap.forEach(m => leafletMap.removeLayer(m));
+      markersMap.clear();
+
+      if (!currentRuta || !currentRuta.servicios) return;
+
+      const bounds = [];
+
+      currentRuta.servicios.forEach(s => {
+        if (activeServiceFilter === 'pendientes' && s.estado === 'procesado') return;
+
+        let markerColor = '#E53935'; 
+
+        if (s.estado === 'procesado') markerColor = '#666666';
+        if (s.estado === 'no-leido') markerColor = '#FF9800';
+
+        const customIcon = L.divIcon({
+          className: 'custom-pin',
+          html: `<div style="background-color: ${markerColor}; width: 22px; height: 22px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 3px 8px rgba(0,0,0,0.7);"></div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11]
+        });
+
+        const marker = L.marker([s.lat, s.lng], { icon: customIcon }).addTo(leafletMap);
+        marker.on('click', () => openServiceModal(s));
+
+        markersMap.set(s.id, marker);
+        bounds.push([s.lat, s.lng]);
+      });
+
+      if (bounds.length > 0 && markersMap.size > 0) {
+        leafletMap.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+
+    function setServiceFilter(filter) {
+      activeServiceFilter = filter;
+      document.getElementById('f-pendientes').classList.toggle('active', filter === 'pendientes');
+      document.getElementById('f-todos').classList.toggle('active', filter === 'todos');
+      renderMapMarkers();
+    }
+
+    function updateProgressUI() {
+      if (!currentRuta || !currentRuta.servicios) return;
+      const total = currentRuta.servicios.length;
+      const proc = currentRuta.servicios.filter(s => s.estado === 'procesado').length;
+      const noLeidos = currentRuta.servicios.filter(s => s.estado === 'no-leido').length;
+      const pct = total > 0 ? Math.round((proc / total) * 100) : 0;
+
+      document.getElementById('progress-text').innerText = `${proc} / ${total} (${pct}%) ${noLeidos > 0 ? '• ⚠️ ' + noLeidos : ''}`;
+      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+    }
+
+    function centerOnUserGPS() {
+      if (!navigator.geolocation) {
+        alert("Geolocalización no disponible en este dispositivo.");
+        return;
+      }
+
+      showToast("Buscando señal GPS...");
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          
+          leafletMap.setView([lat, lng], 17);
+
+          if (window.userLocationMarker) {
+            leafletMap.removeLayer(window.userLocationMarker);
+          }
+
+          window.userLocationMarker = L.circleMarker([lat, lng], {
+            radius: 10,
+            fillColor: "#2196F3",
+            color: "#ffffff",
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.95
+          }).addTo(leafletMap).bindPopup("📍 Estás aquí").openPopup();
+
+          showToast("¡Ubicación GPS encontrada!");
+        },
+        (err) => {
+          let msg = "No se pudo obtener la ubicación.";
+          if (err.code === 1) msg = "Permiso denegado. Activa la Ubicación/GPS en Android y permite el acceso en Chrome.";
+          else if (err.code === 2) msg = "Buscando satélites... Sal a campo abierto si estás bajo techo.";
+          else if (err.code === 3) msg = "Tiempo de espera agotado buscando GPS.";
+          alert(msg);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    function resetCurrentRoute() {
+      if (!currentRuta) return;
+
+      if (confirm("¿Reiniciar la lectura de esta ruta? Todos los servicios volverán a estar PENDIENTES.")) {
+        if (currentRuta.servicios) {
+          currentRuta.servicios.forEach(s => s.estado = 'pendiente');
+        }
+        currentRuta.fechaInicio = new Date().toISOString();
+        saveLocalData();
+        updateProgressUI();
+        renderMapMarkers();
+        renderServicesList();
+        showToast("Ruta reiniciada");
+      }
+    }
+
+    function renderServicesList() {
+      const container = document.getElementById('list-services');
+      container.innerHTML = '';
+      if (!currentRuta || !currentRuta.servicios) return;
+
+      const query = document.getElementById('search-service').value.toLowerCase();
+
+      currentRuta.servicios.forEach(s => {
+        const medidorDisp = s.medidor ? s.medidor : 'S/N';
+        const nombreDisp = s.nombre ? s.nombre : '------';
+
+        if (query && !medidorDisp.toLowerCase().includes(query) && !nombreDisp.toLowerCase().includes(query)) return;
+
+        const item = document.createElement('div');
+        item.className = `service-item ${s.estado}`;
+        item.onclick = () => openServiceModal(s);
+
+        item.innerHTML = `
+          <div>
+            <div style="font-weight:bold; font-size:0.95rem;">${medidorDisp} — ${nombreDisp}</div>
+            ${s.obs ? `<div style="font-size:0.75rem; color:var(--accent); margin-top:2px;">🔑 ${s.obs}</div>` : ''}
+          </div>
+          <div style="font-size:0.75rem; font-weight:bold; padding:4px 8px; border-radius:4px; background:#222;">${s.estado.toUpperCase()}</div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    function openServiceModal(srv) {
+      selectedService = srv;
+      const medidorDisp = srv.medidor ? srv.medidor : 'S/N';
+      const nombreDisp = srv.nombre ? srv.nombre : '------';
+
+      document.getElementById('modal-srv-title').innerText = `${medidorDisp} — ${nombreDisp}`;
+      document.getElementById('modal-srv-obs').innerText = srv.obs ? `🔑 ${srv.obs}` : "Sin observaciones específicas.";
+      document.getElementById('adv-options').style.display = 'none';
+      document.getElementById('modal-service').classList.add('active');
+    }
+
+    function toggleAdvancedOptions() {
+      const adv = document.getElementById('adv-options');
+      adv.style.display = adv.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function openModalFormServicio(srvToEdit = null) {
+      closeModal('modal-service');
+      selectedService = srvToEdit;
+
+      if (srvToEdit) {
+        document.getElementById('form-srv-title').innerText = "Editar Servicio";
+        document.getElementById('input-srv-nombre').value = srvToEdit.nombre || '';
+        document.getElementById('input-srv-medidor').value = srvToEdit.medidor || '';
+        document.getElementById('input-srv-obs').value = srvToEdit.obs || '';
+        document.getElementById('input-srv-lat').value = srvToEdit.lat;
+        document.getElementById('input-srv-lng').value = srvToEdit.lng;
+      } else {
+        document.getElementById('form-srv-title').innerText = "Nuevo Servicio";
+        document.getElementById('input-srv-nombre').value = '';
+        document.getElementById('input-srv-medidor').value = '';
+        document.getElementById('input-srv-obs').value = '';
+        document.getElementById('input-srv-lat').value = '';
+        document.getElementById('input-srv-lng').value = '';
+      }
+
+      document.getElementById('modal-form-service').classList.add('active');
+    }
+
+    function getGPSAccurate() {
+      if (!navigator.geolocation) {
+        alert("Geolocalización no soportada.");
+        return;
+      }
+
+      showToast("Buscando señal GPS precisa...");
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        document.getElementById('input-srv-lat').value = lat;
+        document.getElementById('input-srv-lng').value = lng;
+        lastRecordedGPS = { lat, lng };
+        showToast("¡Coordenadas capturadas!");
+      }, () => alert("Error al obtener señal GPS."), { enableHighAccuracy: true, timeout: 5000 });
+    }
+
+    function copyLastGPS() {
+      if (lastRecordedGPS) {
+        document.getElementById('input-srv-lat').value = lastRecordedGPS.lat;
+        document.getElementById('input-srv-lng').value = lastRecordedGPS.lng;
+        showToast("Coordenada copiada");
+      } else {
+        alert("No hay una coordenada anterior en memoria.");
+      }
+    }
+
+    function guardarServicio() {
+      const nombre = document.getElementById('input-srv-nombre').value.trim();
+      const medidor = document.getElementById('input-srv-medidor').value.trim();
+      const obs = document.getElementById('input-srv-obs').value.trim();
+      const lat = parseFloat(document.getElementById('input-srv-lat').value);
+      const lng = parseFloat(document.getElementById('input-srv-lng').value);
+
+      if (isNaN(lat) || isNaN(lng)) {
+        alert("Las coordenadas (Latitud y Longitud) son obligatorias.");
+        return;
+      }
+
+      lastRecordedGPS = { lat, lng };
+
+      if (selectedService && selectedService.id) {
+        selectedService.nombre = nombre;
+        selectedService.medidor = medidor;
+        selectedService.obs = obs;
+        selectedService.lat = lat;
+        selectedService.lng = lng;
+        showToast("Servicio actualizado");
+      } else {
+        const nuevo = {
+          id: "srv_" + Date.now(),
+          nombre: nombre,
+          medidor: medidor,
+          obs: obs,
+          lat: lat,
+          lng: lng,
+          estado: "pendiente"
+        };
+        currentRuta.servicios.push(nuevo);
+        showToast("Nuevo servicio agregado");
+      }
+
+      saveLocalData();
+      closeModal('modal-form-service');
+      updateProgressUI();
+      renderMapMarkers();
+      renderServicesList();
+    }
+
+    function openEditarServicio() {
+      openModalFormServicio(selectedService);
+    }
+
+    function eliminarServicio() {
+      if (!selectedService) return;
+      const idLabel = selectedService.medidor || selectedService.nombre || "este punto";
+      if (confirm(`¿Seguro que deseas eliminar el servicio "${idLabel}"?`)) {
+        currentRuta.servicios = currentRuta.servicios.filter(s => s.id !== selectedService.id);
+        saveLocalData();
+        closeModal('modal-service');
+        updateProgressUI();
+        renderMapMarkers();
+        renderServicesList();
+        showToast("Servicio eliminado");
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    function closeModalOnBackdrop(event, id) {
+      if (event.target.id === id) closeModal(id);
+    }
+
+    function markService(nuevoEstado) {
+      if (!selectedService) return;
+      selectedService.estado = nuevoEstado;
+      saveLocalData();
+
+      if (activeServiceFilter === 'pendientes' && nuevoEstado === 'procesado') {
+        const marker = markersMap.get(selectedService.id);
+        if (marker) {
+          leafletMap.removeLayer(marker);
+          markersMap.delete(selectedService.id);
+        }
+      } else {
+        renderMapMarkers();
+      }
+
+      updateProgressUI();
+      renderServicesList();
+      closeModal('modal-service');
+    }
+
+    function navigateGPS() {
+      if (selectedService) openGoogleMaps(selectedService.lat, selectedService.lng);
+    }
+
+    function openImportExport() {
+      document.getElementById('modal-data').classList.add('active');
+    }
+
+    function closeDataModal() {
+      document.getElementById('modal-data').classList.remove('active');
+    }
+
+    function downloadCSVTemplate() {
+      const templateContent = "Nombre,Medidor,Latitud,Longitud,Observacion\nEjemplo Taller San Jose,8A3421,26.931200,-105.662100,Pedir llave con encargado\n,12B900,26.940500,-105.671000,Medidor en poste posterior";
+      const blob = new Blob([templateContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "plantilla_medidores.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function exportJSON() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `rutas_cfe_backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          db = JSON.parse(e.target.result);
+          saveLocalData();
+          alert("¡Datos importados con éxito!");
+          location.reload();
+        } catch(err) {
+          alert("Error al procesar el archivo JSON.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function importCSV(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!currentRuta || currentRuta.tipo !== 'VEHICULAR') {
+        alert("Abre primero la ruta vehicular a la que deseas cargar los servicios.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n');
+        let addedCount = 0;
+
+        lines.forEach((line, index) => {
+          if (index === 0 || !line.trim()) return;
+          const cols = line.split(',');
+          if (cols.length >= 4) {
+            currentRuta.servicios.push({
+              id: "csv_" + Date.now() + "_" + index,
+              nombre: cols[0] ? cols[0].trim() : "",
+              medidor: cols[1] ? cols[1].trim() : "",
+              lat: parseFloat(cols[2].trim()),
+              lng: parseFloat(cols[3].trim()),
+              obs: cols[4] ? cols[4].trim() : "",
+              estado: "pendiente"
+            });
+            addedCount++;
+          }
+        });
+
+        saveLocalData();
+        alert(`Se importaron ${addedCount} servicios a la ruta "${currentRuta.nombre}".`);
+        closeDataModal();
+        loadVehicularRoute();
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
