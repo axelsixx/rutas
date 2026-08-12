@@ -237,7 +237,7 @@
       border-radius: 10px;
       padding: 8px;
       box-shadow: 0 6px 16px rgba(0,0,0,0.6);
-      min-width: 160px;
+      min-width: 170px;
     }
 
     .map-tools-menu.active {
@@ -452,8 +452,9 @@
         <div id="map-tools-container" class="map-tools-container">
           <button class="btn-tools-toggle" onclick="toggleMapToolsMenu(event)" title="Menú de Opciones">☰</button>
           <div id="map-tools-menu" class="map-tools-menu">
-            <button class="btn btn-secondary" onclick="openModalFormServicio(); toggleMapToolsMenu();">➕ Nuevo Punto</button>
+            <button id="btn-toggle-live-gps" class="btn btn-secondary" onclick="toggleLiveGPS(); toggleMapToolsMenu();">📡 GPS En Vivo: OFF</button>
             <button class="btn btn-secondary" onclick="centerOnUserGPS(); toggleMapToolsMenu();">📍 Mi Ubicación</button>
+            <button class="btn btn-secondary" onclick="openModalFormServicio(); toggleMapToolsMenu();">➕ Nuevo Punto</button>
             <button class="btn btn-secondary" onclick="resetCurrentRoute(); toggleMapToolsMenu();">🔄 Reiniciar Ruta</button>
           </div>
         </div>
@@ -633,6 +634,10 @@
     let markersMap = new Map();
     let activeServiceFilter = 'pendientes';
 
+    // VARIABLES DE GPS EN VIVO
+    let watchGpsId = null;
+    let isLiveGpsActive = false;
+
     function getCategoriaPorCiclo(cicloId) {
       if (cicloId === 66) return "ALUMBRADO";
       if (cicloId >= 76 && cicloId <= 79) return "OM";
@@ -734,6 +739,8 @@
 
       if (screenId === 'screen-vehicular') {
         setTimeout(() => { if (leafletMap) leafletMap.invalidateSize(); }, 200);
+      } else {
+        stopLiveGPS();
       }
     }
 
@@ -748,6 +755,7 @@
 
     function navigateBack() {
       if (navigationStack.length === 0) return;
+      stopLiveGPS();
       const prev = navigationStack.pop();
       showScreen(prev.screen, prev.title);
     }
@@ -1060,7 +1068,7 @@
 
       L.control.layers(baseMaps, null, { position: 'topright' }).addTo(leafletMap);
 
-      // OPCIÓN A: Inyectar el menú de herramientas al contenedor nativo superior derecho de Leaflet
+      // Inyectar el menú de herramientas al contenedor nativo superior derecho de Leaflet
       const topRightContainer = leafletMap._controlContainer.querySelector('.leaflet-top.leaflet-right');
       const toolsContainer = document.getElementById('map-tools-container');
       if (topRightContainer && toolsContainer) {
@@ -1150,9 +1158,24 @@
       document.getElementById('progress-bar-fill').style.width = `${pct}%`;
     }
 
+    function updateGPSUserMarker(lat, lng) {
+      if (window.userLocationMarker) {
+        window.userLocationMarker.setLatLng([lat, lng]);
+      } else {
+        window.userLocationMarker = L.circleMarker([lat, lng], {
+          radius: 10,
+          fillColor: "#2196F3",
+          color: "#ffffff",
+          weight: 3,
+          opacity: 1,
+          fillOpacity: 0.95
+        }).addTo(leafletMap).bindPopup("📍 Estás aquí");
+      }
+    }
+
     function centerOnUserGPS() {
       if (!navigator.geolocation) {
-        alert("Geolocalización no disponible en este dispositivo.");
+        alert("Geolocalización no disponible.");
         return;
       }
 
@@ -1163,32 +1186,66 @@
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           
+          updateGPSUserMarker(lat, lng);
           leafletMap.setView([lat, lng], 17);
-
-          if (window.userLocationMarker) {
-            leafletMap.removeLayer(window.userLocationMarker);
-          }
-
-          window.userLocationMarker = L.circleMarker([lat, lng], {
-            radius: 10,
-            fillColor: "#2196F3",
-            color: "#ffffff",
-            weight: 3,
-            opacity: 1,
-            fillOpacity: 0.95
-          }).addTo(leafletMap).bindPopup("📍 Estás aquí").openPopup();
-
-          showToast("¡Ubicación GPS encontrada!");
+          showToast("¡Ubicación GPS centrada!");
         },
         (err) => {
-          let msg = "No se pudo obtener la ubicación.";
-          if (err.code === 1) msg = "Permiso denegado. Activa la Ubicación/GPS en Android y permite el acceso en Chrome.";
-          else if (err.code === 2) msg = "Buscando satélites... Sal a campo abierto si estás bajo techo.";
-          else if (err.code === 3) msg = "Tiempo de espera agotado buscando GPS.";
-          alert(msg);
+          alert("Error obteniendo ubicación. Asegúrate de estar en HTTPS y tener el GPS activo.");
         },
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
+    }
+
+    // FUNCIONES DE CONTROL GPS EN VIVO (MODO HÍBRIDO)
+    function toggleLiveGPS() {
+      if (isLiveGpsActive) {
+        stopLiveGPS();
+      } else {
+        startLiveGPS();
+      }
+    }
+
+    function startLiveGPS() {
+      if (!navigator.geolocation) {
+        alert("Geolocalización no disponible.");
+        return;
+      }
+
+      isLiveGpsActive = true;
+      const btn = document.getElementById('btn-toggle-live-gps');
+      btn.innerText = "📡 GPS En Vivo: ON";
+      btn.style.backgroundColor = "var(--primary)";
+      btn.style.color = "#fff";
+
+      showToast("GPS en vivo ACTIVADO");
+
+      watchGpsId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          updateGPSUserMarker(lat, lng);
+        },
+        (err) => {
+          console.warn("Error en seguimiento GPS continuo", err);
+        },
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+      );
+    }
+
+    function stopLiveGPS() {
+      if (watchGpsId !== null) {
+        navigator.geolocation.clearWatch(watchGpsId);
+        watchGpsId = null;
+      }
+      isLiveGpsActive = false;
+      const btn = document.getElementById('btn-toggle-live-gps');
+      if (btn) {
+        btn.innerText = "📡 GPS En Vivo: OFF";
+        btn.style.backgroundColor = "#333";
+        btn.style.color = "var(--text)";
+      }
+      showToast("GPS en vivo DESACTIVADO");
     }
 
     function resetCurrentRoute() {
